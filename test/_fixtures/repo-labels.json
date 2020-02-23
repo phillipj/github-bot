@@ -6,8 +6,8 @@
       "color": "fc2929"
     },
     {
-      "url": "https://api.github.com/repos/nodejs/node/labels/duplicate",
-      "name": "duplicate",
+      "url": "https://api.github.com/repos/nodejs/node/labels/v6.x",
+      "name": "v6.x",
       "color": "ededed"
     },
     {
@@ -16,9 +16,9 @@
       "color": "159818"
     },
     {
-      "url": "https://api.github.com/repos/nodejs/node/labels/invalid",
-      "name": "invalid",
-      "color": "ededed"
+      "url": "https://api.github.com/repos/nodejs/node/labels/timers",
+      "name": "timers",
+      "color": "f7c6c7"
     },
     {
       "url": "https://api.github.com/repos/nodejs/node/labels/question",

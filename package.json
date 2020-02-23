@@ -13,15 +13,16 @@
   "private": true,
   "license": "MIT",
   "dependencies": {
-    "async": "2.1.5",
+    "@octokit/rest": "^14.0.9",
+    "async": "^3.1.1",
     "basic-auth": "^1.0.4",
     "body-parser": "^1.15.0",
     "bunyan": "^1.8.1",
     "bunyan-middleware": "0.8.0",
     "debug": "^2.2.0",
     "dotenv": "^2.0.0",
+    "emittery": "^0.5.1",
     "express": "^4.13.4",
-    "github": "^12.1.0",
     "glob": "^7.0.3",
     "lru-cache": "^4.0.1",
     "request": "^2.88.0"
