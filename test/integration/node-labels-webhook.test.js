@@ -17,9 +17,11 @@ const testStubs = {
   }
 }
 
-const app = proxyquire('../../app', testStubs)
+const { app, events } = proxyquire('../../app', testStubs)
 
 const readFixture = require('../read-fixture')
+
+require('../../scripts/node-subsystem-label')(app, events)
 
 setupNoRequestMatchHandler()
 

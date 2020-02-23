@@ -26,6 +26,6 @@ function handlePrCreated ({ event, owner, repo }) {
     prId,
     logger,
     baseBranch,
-    timeoutInSec: 0,
+    timeoutInSec: 0, // NB! Should be 2 sec in production, but 0 in tests
   })
 }
