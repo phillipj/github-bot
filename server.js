@@ -19,7 +19,14 @@ if (process.env.NODE_REPO_DIR) {
 }
 
 const port = process.env.PORT || 3000
+const scriptsToLoad = process.env.SCRIPTS || './scripts/**/*.js'
 const app = require('./app')
+
+// load all the files in the scripts folder
+glob.sync(scriptsToLoad).forEach((file) => {
+  logger.info('Loading:', file)
+  require(file)(app, events)
+})
 
 app.listen(port, () => {
   logger.info('Listening on port', port)

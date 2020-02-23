@@ -49,71 +49,76 @@ function triggerBuild (options, cb) {
   const buildAuthToken = buildTokenForRepo(repo)
 
   if (!jobName) {
-    return cb(new TypeError(`Will not trigger Jenkins build because $JENKINS_JOB_${repo.toUpperCase()} is not set`))
+    throw new TypeError(`Will not trigger Jenkins build because $JENKINS_JOB_${repo.toUpperCase()} is not set`)
   }
 
   if (!buildAuthToken) {
-    return cb(new TypeError(`Will not trigger Jenkins build because $JENKINS_BUILD_TOKEN_${repo.toUpperCase()} is not set`))
+    throw new TypeError(`Will not trigger Jenkins build because $JENKINS_BUILD_TOKEN_${repo.toUpperCase()} is not set`)
   }
 
   options.logger.debug('Triggering Jenkins build')
 
-  request.post({
-    uri: `https://ci.nodejs.org/blue/rest/organizations/jenkins/pipelines/${jobName}/runs/`,
-    headers: { authorization },
-    qs: { token: buildAuthToken },
-    json: { parameters: buildParametersForRepo(options, repo) }
-  }, (err, response, body) => {
-    if (err) {
-      return cb(err)
-    } else if (response.statusCode !== 200) {
-      return cb(new Error(`Expected 200 from Jenkins, got ${response.statusCode}: ${body}`))
-    }
+  return new Promise((resolve, reject) => {
+    request.post({
+      uri: `https://ci.nodejs.org/blue/rest/organizations/jenkins/pipelines/${jobName}/runs/`,
+      headers: { authorization },
+      qs: { token: buildAuthToken },
+      json: { parameters: buildParametersForRepo(options, repo) }
+    }, (err, response, body) => {
+      if (err) {
+        return reject(err)
+      } else if (response.statusCode !== 200) {
+        return reject(new Error(`Expected 200 from Jenkins, got ${response.statusCode}: ${body}`))
+      }
 
-    cb(null, { jobName, jobId: response.body.id })
+      resolve({ jobName, jobId: response.body.id })
+    })
   })
 }
 
 function triggerBuildIfValid (options) {
   const { owner, repo, author, logger } = options
 
-  githubClient.repos.checkCollaborator({ owner, repo, username: author }, function onResponse (err) {
-    if (err) {
-      return logger.debug(`Ignoring comment to me by @${options.author} because they are not a repo collaborator`)
-    }
+  // NB! This needs work, ensure things are trigger correctly.. As of now, ignore comment branch would result in
+  //     "error while triggering" error to be logged, which does not make sense
 
-    triggerBuild(options, function onBuildTriggered (err, result) {
-      if (err) {
-        return logger.error(err, 'Error while triggering Jenkins build')
+  return githubClient.repos.checkCollaborator({ owner, repo, username: author })
+    .then(
+      () => triggerBuild(options),
+      (err) => {
+        logger.debug(`Ignoring comment to me by @${options.author} because they are not a repo collaborator`)
+        throw err
       }
-
+    ).then((result) => {
       const jobUrl = `https://ci.nodejs.org/job/${result.jobName}/${result.jobId}`
       logger.info({ jobUrl }, 'Jenkins build started')
-      createPrComment(options, `Lite-CI: ${jobUrl}`)
+      return createPrComment(options, `Lite-CI: ${jobUrl}`)
+    }, (err) => {
+      logger.error(err, 'Error while triggering Jenkins build')
+      throw err
     })
-  })
 }
 
-module.exports = (app) => {
-  app.on('issue_comment.created', handleCommentCreated)
+module.exports = (app, events) => {
+  events.on('issue_comment.created', handleCommentCreated)
 
-  app.on('pull_request.opened', handlePullCreated)
+  events.on('pull_request.opened', handlePullCreated)
 }
 
-function handleCommentCreated (event, owner, repo) {
+function handleCommentCreated ({ event, owner, repo }) {
   const { number, logger, comment: { body, user: { login: author } } } = event
   const options = { owner, repo, number, logger, author }
 
   if (wasBotMentionedInCiComment(body)) {
-    triggerBuildIfValid(options)
+    return triggerBuildIfValid(options)
   }
 }
 
-function handlePullCreated (event, owner, repo) {
+function handlePullCreated ({ event, owner, repo }) {
   const { number, logger, pull_request: { user: { login: author } } } = event
   const options = { owner, repo, number, logger, author }
 
   if (repo === 'node') {
-    triggerBuildIfValid(options)
+    return triggerBuildIfValid(options)
   }
 }

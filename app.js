@@ -14,7 +14,6 @@ const captureRaw = (req, res, buffer) => { req.raw = buffer }
 const app = express()
 const events = new Emittery()
 
-const scriptsToLoad = process.env.SCRIPTS || './scripts/**/*.js'
 const logsDir = process.env.LOGS_DIR || ''
 
 app.use(bodyParser.json({ verify: captureRaw }))
@@ -33,15 +32,9 @@ app.use(bunyanMiddleware({
 
 require('./lib/github-events')(app, events)
 
-// load all the files in the scripts folder
-glob.sync(scriptsToLoad).forEach((file) => {
-  logger.info('Loading:', file)
-  require(file)(app, events)
-})
-
 app.use(function logUnhandledErrors (err, req, res, next) {
   logger.error(err, 'Unhandled error while responding to incoming HTTP request')
   res.status(500).end()
 })
 
-module.exports = app
+module.exports = { app, events }

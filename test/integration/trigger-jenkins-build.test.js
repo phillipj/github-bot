@@ -5,10 +5,9 @@ const url = require('url')
 const nock = require('nock')
 const supertest = require('supertest')
 const proxyquire = require('proxyquire')
-const lolex = require('lolex')
 const readFixture = require('../read-fixture')
 
-const app = proxyquire('../../app', {
+const { app, events } = proxyquire('../../app', {
   './github-secret': {
     isValid: () => true,
 
@@ -18,16 +17,16 @@ const app = proxyquire('../../app', {
   }
 })
 
-tap.test('Sends POST request to https://ci.nodejs.org', (t) => {
-  const clock = lolex.install()
+require('../../scripts/trigger-jenkins-build')(app, events)
 
+tap.test('Sends POST request to https://ci.nodejs.org', (t) => {
   const originalJobUrlValue = process.env.JENKINS_JOB_URL_NODE
   const originalTokenValue = process.env.JENKINS_BUILD_TOKEN_NODE
   process.env.JENKINS_JOB_NODE = 'node-test-pull-request-lite-pipeline'
   process.env.JENKINS_BUILD_TOKEN_NODE = 'myToken'
 
   const webhookPayload = readFixture('pull-request-opened.json')
-  const pipelineUrl = 'https://ci.nodejs.org/blue/organizations/jenkins/node-test-pull-request-lite-pipeline/detail/node-test-pull-request-lite-pipeline/1/pipeline'
+  const pipelineUrl = 'https://ci.nodejs.org/job/node-test-pull-request-lite-pipeline/1'
 
   const collaboratorsScope = nock('https://api.github.com')
     .filteringPath(ignoreQueryParams)
@@ -40,11 +39,10 @@ tap.test('Sends POST request to https://ci.nodejs.org', (t) => {
 
   const commentScope = nock('https://api.github.com')
     .filteringPath(ignoreQueryParams)
-    .post('/repos/nodejs/node/issues/19/comments', { body: `@phillipj build started: ${pipelineUrl}` })
+    .post('/repos/nodejs/node/issues/19/comments', { body: `Lite-CI: ${pipelineUrl}` })
     .reply(200)
 
-  t.plan(1)
-  t.tearDown(() => collaboratorsScope.done() && ciJobScope.done() && commentScope.done() && clock.uninstall())
+  t.tearDown(() => nock.cleanAll())
 
   supertest(app)
     .post('/hooks/github')
@@ -54,8 +52,12 @@ tap.test('Sends POST request to https://ci.nodejs.org', (t) => {
     .end((err, res) => {
       process.env.JENKINS_JOB_URL_NODE = originalJobUrlValue
       process.env.JENKINS_BUILD_TOKEN_NODE = originalTokenValue
-      clock.runAll()
+
       t.equal(err, null)
+      collaboratorsScope.done()
+      ciJobScope.done()
+      commentScope.done()
+      t.done()
     })
 })
 
